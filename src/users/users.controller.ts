@@ -27,6 +27,16 @@ export class UsersController {
     return this.usersService.update(req.user.userId, body);
   }
 
+  @Patch(':id/verify')
+  verify(@Param('id') id: string) {
+    return this.usersService.verify(id);
+  }
+
+  @Patch(':id/toggle-active')
+  toggleActive(@Param('id') id: string) {
+    return this.usersService.toggleActive(id);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(id);
