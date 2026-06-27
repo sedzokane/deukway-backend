@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TENANT
+  OWNER
+  ADMIN
+}
+
+enum ListingType {
+  STUDIO
+  APARTMENT
+  ROOM
+  COLOCATION
+}
+
+enum VisitStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id          String    @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String?   @unique
+  phone       String    @unique
+  password    String
+  role        Role      @default(TENANT)
+  avatar      String?
+  city        String?
+  pushToken   String?
+  isVerified  Boolean   @default(false)
+  isPremium   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  listings    Listing[]
+  favorites   Favorite[]
+  visits      Visit[]   @relation("TenantVisits")
+  ownedVisits Visit[]   @relation("OwnerVisits")
+  sentMessages    Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+
+  @@map("users")
+}
+
+model Listing {
+  id           String      @id @default(uuid())
+  title        String
+  description  String
+  type         ListingType
+  price        Int
+  surface      Int?
+  rooms        Int?
+  city         String
+  neighborhood String
+  address      String?
+  latitude     Float?
+  longitude    Float?
+  isFurnished  Boolean     @default(false)
+  hasWifi      Boolean     @default(false)
+  hasElectricity Boolean   @default(false)
+  hasWater     Boolean     @default(false)
+  hasParking   Boolean     @default(false)
+  hasAC        Boolean     @default(false)
+  hasAnimals   Boolean     @default(false)
+  deposit      Int?
+  isVerified   Boolean     @default(false)
+  isActive     Boolean     @default(true)
+  viewCount    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  ownerId      String
+  owner        User        @relation(fields: [ownerId], references: [id])
+  media        Media[]
+  favorites    Favorite[]
+  visits       Visit[]
+
+  @@map("listings")
+}
+
+model Media {
+  id        String   @id @default(uuid())
+  url       String
+  publicId  String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("media")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@map("favorites")
+}
+
+model Visit {
+  id          String      @id @default(uuid())
+  date        DateTime
+  status      VisitStatus @default(PENDING)
+  message     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  tenantId    String
+  tenant      User        @relation("TenantVisits", fields: [tenantId], references: [id])
+  ownerId     String
+  owner       User        @relation("OwnerVisits", fields: [ownerId], references: [id])
+  listingId   String
+  listing     Listing     @relation(fields: [listingId], references: [id])
+
+  @@map("visits")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  type      String   @default("text")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  senderId    String
+  sender      User   @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@map("messages")
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("otps")
+}
