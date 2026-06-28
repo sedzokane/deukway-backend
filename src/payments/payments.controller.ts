@@ -1,13 +1,13 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('payments')
-@UseGuards(JwtAuthGuard)
 export class PaymentsController {
   constructor(private paymentsService: PaymentsService) {}
 
   @Post('invoice')
+  @UseGuards(JwtAuthGuard)
   async createInvoice(
     @Request() req,
     @Body() body: { amount: number; description: string; returnUrl: string },
@@ -21,7 +21,21 @@ export class PaymentsController {
   }
 
   @Get('check/:token')
+  @UseGuards(JwtAuthGuard)
   async checkInvoice(@Param('token') token: string) {
     return this.paymentsService.checkInvoice(token);
+  }
+
+  @Get('success')
+  async paymentSuccess(@Query('token') token: string) {
+    console.log('Payment success, token:', token);
+    return { message: 'Paiement recu', token: token };
+  }
+
+  @Get('ipn')
+  @Post('ipn')
+  async ipn(@Body() body: any, @Query() query: any) {
+    console.log('IPN received:', JSON.stringify(body || query));
+    return { message: 'ok' };
   }
 }
