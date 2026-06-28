@@ -27,6 +27,12 @@ enum VisitStatus {
   COMPLETED
 }
 
+enum ContractStatus {
+  PENDING
+  SIGNED
+  REJECTED
+}
+
 model User {
   id          String    @id @default(uuid())
   firstName   String
@@ -44,48 +50,51 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  listings    Listing[]
-  favorites   Favorite[]
-  visits      Visit[]   @relation("TenantVisits")
-  ownedVisits Visit[]   @relation("OwnerVisits")
-  sentMessages    Message[] @relation("SentMessages")
-  receivedMessages Message[] @relation("ReceivedMessages")
+  listings         Listing[]
+  favorites        Favorite[]
+  visits           Visit[]    @relation("TenantVisits")
+  ownedVisits      Visit[]    @relation("OwnerVisits")
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  ownerContracts   Contract[] @relation("OwnerContracts")
+  tenantContracts  Contract[] @relation("TenantContracts")
 
   @@map("users")
 }
 
 model Listing {
-  id           String      @id @default(uuid())
-  title        String
-  description  String
-  type         ListingType
-  price        Int
-  surface      Int?
-  rooms        Int?
-  city         String
-  neighborhood String
-  address      String?
-  latitude     Float?
-  longitude    Float?
-  isFurnished  Boolean     @default(false)
-  hasWifi      Boolean     @default(false)
-  hasElectricity Boolean   @default(false)
-  hasWater     Boolean     @default(false)
-  hasParking   Boolean     @default(false)
-  hasAC        Boolean     @default(false)
-  hasAnimals   Boolean     @default(false)
-  deposit      Int?
-  isVerified   Boolean     @default(false)
-  isActive     Boolean     @default(true)
-  viewCount    Int         @default(0)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id             String      @id @default(uuid())
+  title          String
+  description    String
+  type           ListingType
+  price          Int
+  surface        Int?
+  rooms          Int?
+  city           String
+  neighborhood   String
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  isFurnished    Boolean     @default(false)
+  hasWifi        Boolean     @default(false)
+  hasElectricity Boolean     @default(false)
+  hasWater       Boolean     @default(false)
+  hasParking     Boolean     @default(false)
+  hasAC          Boolean     @default(false)
+  hasAnimals     Boolean     @default(false)
+  deposit        Int?
+  isVerified     Boolean     @default(false)
+  isActive       Boolean     @default(true)
+  viewCount      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
-  ownerId      String
-  owner        User        @relation(fields: [ownerId], references: [id])
-  media        Media[]
-  favorites    Favorite[]
-  visits       Visit[]
+  ownerId   String
+  owner     User       @relation(fields: [ownerId], references: [id])
+  media     Media[]
+  favorites Favorite[]
+  visits    Visit[]
+  contracts Contract[]
 
   @@map("listings")
 }
@@ -98,7 +107,7 @@ model Media {
   createdAt DateTime @default(now())
 
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@map("media")
 }
@@ -108,30 +117,52 @@ model Favorite {
   createdAt DateTime @default(now())
 
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   @@unique([userId, listingId])
   @@map("favorites")
 }
 
 model Visit {
-  id          String      @id @default(uuid())
-  date        DateTime
-  status      VisitStatus @default(PENDING)
-  message     String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id        String      @id @default(uuid())
+  date      DateTime
+  status    VisitStatus @default(PENDING)
+  message   String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  tenantId    String
-  tenant      User        @relation("TenantVisits", fields: [tenantId], references: [id])
-  ownerId     String
-  owner       User        @relation("OwnerVisits", fields: [ownerId], references: [id])
-  listingId   String
-  listing     Listing     @relation(fields: [listingId], references: [id])
+  tenantId  String
+  tenant    User    @relation("TenantVisits", fields: [tenantId], references: [id])
+  ownerId   String
+  owner     User    @relation("OwnerVisits", fields: [ownerId], references: [id])
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id])
+  contract  Contract?
 
   @@map("visits")
+}
+
+model Contract {
+  id        String         @id @default(uuid())
+  visitId   String         @unique
+  ownerId   String
+  tenantId  String
+  listingId String
+  content   String         @db.Text
+  pdfUrl    String?
+  status    ContractStatus @default(PENDING)
+  signedAt  DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  visit   Visit   @relation(fields: [visitId], references: [id])
+  owner   User    @relation("OwnerContracts", fields: [ownerId], references: [id])
+  tenant  User    @relation("TenantContracts", fields: [tenantId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@map("contracts")
 }
 
 model Message {
@@ -141,10 +172,10 @@ model Message {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  senderId    String
-  sender      User   @relation("SentMessages", fields: [senderId], references: [id])
-  receiverId  String
-  receiver    User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  senderId   String
+  sender     User   @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id])
 
   @@map("messages")
 }
