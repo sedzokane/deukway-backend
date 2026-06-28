@@ -72,13 +72,24 @@ export class ListingsService {
   }
 
   async create(userId: string, data: any) {
-    return this.prisma.listing.create({
-      data: { ...data, ownerId: userId },
-      include: {
-        owner: { select: { id: true, firstName: true, lastName: true, phone: true } },
-        media: true,
-      },
-    });
+    try {
+      console.log('Creating listing for user:', userId);
+      console.log('Data:', JSON.stringify(data));
+      const result = await this.prisma.listing.create({
+        data: { ...data, ownerId: userId },
+        include: {
+          owner: { select: { id: true, firstName: true, lastName: true, phone: true } },
+          media: true,
+        },
+      });
+      console.log('Listing created:', result.id);
+      return result;
+    } catch(e) {
+      console.error('Listing create error:', e.message);
+      console.error('Error code:', e.code);
+      console.error('Error meta:', JSON.stringify(e.meta));
+      throw e;
+    }
   }
 
   async update(id: string, userId: string, data: any) {
