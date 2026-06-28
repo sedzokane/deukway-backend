@@ -10,13 +10,14 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard)
   async createInvoice(
     @Request() req,
-    @Body() body: { amount: number; description: string; returnUrl: string },
+    @Body() body: { amount: number; description: string; returnUrl: string; channel?: string },
   ) {
     return this.paymentsService.createInvoice(
       req.user.userId,
       body.amount,
       body.description,
       body.returnUrl,
+      body.channel,
     );
   }
 
@@ -32,10 +33,9 @@ export class PaymentsController {
     return { message: 'Paiement recu', token: token };
   }
 
-  @Get('ipn')
   @Post('ipn')
-  async ipn(@Body() body: any, @Query() query: any) {
-    console.log('IPN received:', JSON.stringify(body || query));
+  async ipn(@Body() body: any) {
+    console.log('IPN received:', JSON.stringify(body));
     return { message: 'ok' };
   }
 }
