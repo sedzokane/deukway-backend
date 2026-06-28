@@ -3,21 +3,25 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const paydunya = require('paydunya');
 
+const setup = new paydunya.Setup({
+  masterKey: 'TdBzwUdV-vemt-YVWH-ZgqH-v3cF7WOr60kY',
+  privateKey: 'test_private_ZoNhhFEytY0dJhsUZAp9PUxZaOk',
+  publicKey: 'test_public_1FRdKfkjhI5F8dqQQlNhKPmqUn6',
+  token: 'KpVf7J0eswO6CbMe5OHk',
+  mode: 'test',
+});
+
+const store = new paydunya.Store({
+  name: 'Deukway',
+  tagline: 'Location immobiliere au Senegal',
+  phoneNumber: '338000000',
+  postalAddress: 'Dakar, Senegal',
+  websiteUrl: 'https://deukway-backend-production.up.railway.app',
+});
+
 @Injectable()
 export class PaymentsService {
-  constructor(private prisma: PrismaService) {
-    paydunya.Setup.masterKey = 'TdBzwUdV-vemt-YVWH-ZgqH-v3cF7WOr60kY';
-    paydunya.Setup.privateKey = 'test_private_ZoNhhFEytY0dJhsUZAp9PUxZaOk';
-    paydunya.Setup.publicKey = 'test_public_1FRdKfkjhI5F8dqQQlNhKPmqUn6';
-    paydunya.Setup.token = 'KpVf7J0eswO6CbMe5OHk';
-    paydunya.Setup.mode = 'test';
-
-    paydunya.Store.name = 'Deukway';
-    paydunya.Store.tagline = 'Location immobiliere au Senegal';
-    paydunya.Store.phoneNumber = '338000000';
-    paydunya.Store.postalAddress = 'Dakar, Senegal';
-    paydunya.Store.websiteUrl = 'https://deukway-backend-production.up.railway.app';
-  }
+  constructor(private prisma: PrismaService) {}
 
   async createInvoice(userId: string, amount: number, description: string, returnUrl: string) {
     try {
@@ -33,7 +37,7 @@ export class PaymentsService {
         invoice.create((err: any, response: any) => {
           if (err) {
             console.error('PayDunya error:', err);
-            reject(new Error(err));
+            reject(new Error(String(err)));
           } else {
             console.log('PayDunya response:', JSON.stringify(response));
             resolve(response);
