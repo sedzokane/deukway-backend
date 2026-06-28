@@ -26,7 +26,10 @@ export class PaymentsService {
   async createInvoice(userId: string, amount: number, description: string, returnUrl: string) {
     try {
       console.log('Creating invoice for user:', userId, 'amount:', amount);
-      const invoice = new paydunya.CheckoutInvoice();
+      console.log('Setup config:', JSON.stringify(setup.config));
+      console.log('Store name:', store.name);
+
+      const invoice = new paydunya.CheckoutInvoice(setup, store);
       invoice.addItem('Deukway Service', 1, amount, amount, description);
       invoice.totalAmount = amount;
       invoice.description = description;
@@ -53,7 +56,7 @@ export class PaymentsService {
   }
 
   async checkInvoice(token: string) {
-    const invoice = new paydunya.CheckoutInvoice();
+    const invoice = new paydunya.CheckoutInvoice(setup, store);
     const result = await new Promise((resolve, reject) => {
       invoice.confirm(token, (err: any, response: any) => {
         if (err) reject(err);
