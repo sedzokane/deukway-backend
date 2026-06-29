@@ -56,6 +56,21 @@ export class PaymentsService {
       clearTimeout(timeout);
       const data = await response.json();
       console.log('PayDunya response:', JSON.stringify(data));
+
+      // Sauvegarder le paiement en DB
+      if (data.token) {
+        await this.prisma.payment.create({
+          data: {
+            userId,
+            amount,
+            description,
+            channel: channel || null,
+            token: data.token,
+            status: 'PENDING',
+          },
+        });
+      }
+
       return data;
     } catch(e) {
       clearTimeout(timeout);
@@ -74,6 +89,32 @@ export class PaymentsService {
         'PAYDUNYA-TOKEN': 'KpVf7J0eswO6CbMe5OHk',
       },
     });
-    return response.json();
+    const data = await response.json();
+
+    // Mettre à jour le statut en DB
+    if (data.status === 'completed') {
+      await this.prisma.payment.updateMany({
+        where: { token },
+        data: { status: 'COMPLETED' },
+      });
+    } else if (data.status === 'failed') {
+      await this.prisma.payment.updateMany({
+        where: { token },
+        data: { status: 'FAILED' },
+      });
+    }
+
+    return data;
+  }
+
+  async getHistory(userId: string) {
+    return this.prisma.payment.findMany({
+      where: { userId },
+      include: {
+        listing: { select: { id: true, title: true, neighborhood: true, city: true } },
+        contract: { select: { id: true, status: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

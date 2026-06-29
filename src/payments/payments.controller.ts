@@ -21,6 +21,12 @@ export class PaymentsController {
     );
   }
 
+  @Get('history')
+  @UseGuards(JwtAuthGuard)
+  async getHistory(@Request() req) {
+    return this.paymentsService.getHistory(req.user.userId);
+  }
+
   @Get('check/:token')
   @UseGuards(JwtAuthGuard)
   async checkInvoice(@Param('token') token: string) {
@@ -29,7 +35,6 @@ export class PaymentsController {
 
   @Get('success')
   async paymentSuccess(@Query('token') token: string, @Res() res: any) {
-    console.log('Payment success, token:', token);
     res.send(`
       <!DOCTYPE html>
       <html>
