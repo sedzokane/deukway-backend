@@ -1,6 +1,5 @@
-Set-Content -Path "src\reviews\reviews.service.ts" -Value @'
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ReviewsService {
@@ -11,16 +10,12 @@ export class ReviewsService {
       where: { id: contractId },
       include: { owner: true, tenant: true },
     });
-
-    if (!contract) throw new NotFoundException("Contrat introuvable");
-    if (contract.tenantId !== reviewerId) throw new ForbiddenException("Seul le locataire peut noter");
-    if (contract.status !== "SIGNED") throw new ForbiddenException("Le contrat doit etre signe");
-
+    if (!contract) throw new NotFoundException('Contrat introuvable');
+    if (contract.tenantId !== reviewerId) throw new ForbiddenException('Seul le locataire peut noter');
+    if (contract.status !== 'SIGNED') throw new ForbiddenException('Le contrat doit etre signe');
     const existing = await this.prisma.review.findUnique({ where: { contractId } });
-    if (existing) throw new ConflictException("Vous avez deja note ce contrat");
-
-    if (rating < 1 || rating > 5) throw new ForbiddenException("La note doit etre entre 1 et 5");
-
+    if (existing) throw new ConflictException('Vous avez deja note ce contrat');
+    if (rating < 1 || rating > 5) throw new ForbiddenException('La note doit etre entre 1 et 5');
     return this.prisma.review.create({
       data: { rating, comment, reviewerId, reviewedId: contract.ownerId, contractId },
       include: {
@@ -37,9 +32,9 @@ export class ReviewsService {
         reviewer: { select: { id: true, firstName: true, lastName: true, avatar: true } },
         contract: { include: { listing: { select: { id: true, title: true } } } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
-    const total = reviews.reduce(function(sum, r) { return sum + r.rating; }, 0);
+    const total = reviews.reduce((sum, r) => sum + r.rating, 0);
     const average = reviews.length > 0 ? Math.round((total / reviews.length) * 10) / 10 : 0;
     return { reviews, average, count: reviews.length };
   }
@@ -51,7 +46,7 @@ export class ReviewsService {
         reviewed: { select: { id: true, firstName: true, lastName: true, avatar: true } },
         contract: { include: { listing: { select: { id: true, title: true } } } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -64,4 +59,3 @@ export class ReviewsService {
     });
   }
 }
-'@
