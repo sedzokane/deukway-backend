@@ -1,21 +1,18 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
-const PDFDocument = require('pdfkit');
-const { Readable } = require('stream');
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ContractsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async createContract(ownerId: string, visitId: string) {
     const visit = await this.prisma.visit.findUnique({
       where: { id: visitId },
-      include: {
-        tenant: true,
-        owner: true,
-        listing: true,
-      },
+      include: { tenant: true, owner: true, listing: true },
     });
 
     if (!visit) throw new NotFoundException('Visite introuvable');
@@ -43,6 +40,14 @@ export class ContractsService {
         listing: true,
       },
     });
+
+    // Notifier le locataire
+    await this.notifications.sendPushNotification(
+      visit.tenantId,
+      '📄 Nouveau contrat',
+      `${visit.owner.firstName} vous a envoyé un contrat pour ${visit.listing.title}`,
+      { type: 'contract', contractId: contract.id },
+    );
 
     return contract;
   }
@@ -143,33 +148,60 @@ ${owner.firstName} ${owner.lastName}`;
   }
 
   async signContract(id: string, tenantId: string) {
-    const contract = await this.prisma.contract.findUnique({ where: { id } });
+    const contract = await this.prisma.contract.findUnique({
+      where: { id },
+      include: {
+        owner: true,
+        tenant: true,
+        listing: true,
+      },
+    });
     if (!contract) throw new NotFoundException('Contrat introuvable');
     if (contract.tenantId !== tenantId) throw new ForbiddenException('Acces refuse');
     if (contract.status === 'SIGNED') throw new ForbiddenException('Contrat deja signe');
 
-    return this.prisma.contract.update({
+    const updated = await this.prisma.contract.update({
       where: { id },
-      data: {
-        status: 'SIGNED',
-        signedAt: new Date(),
-      },
+      data: { status: 'SIGNED', signedAt: new Date() },
       include: {
         owner: { select: { id: true, firstName: true, lastName: true, phone: true } },
         tenant: { select: { id: true, firstName: true, lastName: true, phone: true } },
         listing: true,
       },
     });
+
+    // Notifier le propriétaire
+    await this.notifications.sendPushNotification(
+      contract.ownerId,
+      '✅ Contrat signé !',
+      `${contract.tenant.firstName} a signé le contrat pour ${contract.listing.title}`,
+      { type: 'contract_signed', contractId: id },
+    );
+
+    return updated;
   }
 
   async rejectContract(id: string, tenantId: string) {
-    const contract = await this.prisma.contract.findUnique({ where: { id } });
+    const contract = await this.prisma.contract.findUnique({
+      where: { id },
+      include: { tenant: true, listing: true },
+    });
     if (!contract) throw new NotFoundException('Contrat introuvable');
     if (contract.tenantId !== tenantId) throw new ForbiddenException('Acces refuse');
 
-    return this.prisma.contract.update({
+    const updated = await this.prisma.contract.update({
       where: { id },
       data: { status: 'REJECTED' },
     });
+
+    // Notifier le propriétaire
+    await this.notifications.sendPushNotification(
+      contract.ownerId,
+      '❌ Contrat refusé',
+      `${contract.tenant.firstName} a refusé le contrat pour ${contract.listing.title}`,
+      { type: 'contract_rejected', contractId: id },
+    );
+
+    return updated;
   }
 }
