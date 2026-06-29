@@ -65,6 +65,8 @@ model User {
   ownerContracts   Contract[] @relation("OwnerContracts")
   tenantContracts  Contract[] @relation("TenantContracts")
   payments         Payment[]
+  reviewsGiven     Review[]   @relation("ReviewsGiven")
+  reviewsReceived  Review[]   @relation("ReviewsReceived")
 
   @@map("users")
 }
@@ -170,6 +172,7 @@ model Contract {
   tenant   User      @relation("TenantContracts", fields: [tenantId], references: [id])
   listing  Listing   @relation(fields: [listingId], references: [id])
   payments Payment[]
+  review   Review?
 
   @@map("contracts")
 }
@@ -192,6 +195,22 @@ model Payment {
   contract Contract? @relation(fields: [contractId], references: [id])
 
   @@map("payments")
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  rating     Int
+  comment    String?
+  reviewerId String
+  reviewedId String
+  contractId String   @unique
+  createdAt  DateTime @default(now())
+
+  reviewer User     @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewed User     @relation("ReviewsReceived", fields: [reviewedId], references: [id])
+  contract Contract @relation(fields: [contractId], references: [id])
+
+  @@map("reviews")
 }
 
 model Message {
