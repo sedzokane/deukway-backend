@@ -20,6 +20,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
+  private onlineUsers = new Map<string, string>();
+
   constructor(
     private chatService: ChatService,
     private jwtService: JwtService,
@@ -34,14 +36,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.userId = payload.sub;
       client.data.role = payload.role;
       client.join('user_' + payload.sub);
-      console.log('Client connected:', payload.sub);
+      this.onlineUsers.set(payload.sub, client.id);
+      this.server.emit('user_online', { userId: payload.sub });
+      console.log('Client connected:', payload.sub, 'Online:', this.onlineUsers.size);
     } catch (e) {
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    console.log('Client disconnected:', client.data.userId);
+    const userId = client.data.userId;
+    if (userId) {
+      this.onlineUsers.delete(userId);
+      this.server.emit('user_offline', { userId });
+      console.log('Client disconnected:', userId);
+    }
   }
 
   @SubscribeMessage('join_conversation')
@@ -51,7 +60,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const roomId = this.getRoomId(client.data.userId, data.receiverId);
     client.join(roomId);
+    const isOnline = this.onlineUsers.has(data.receiverId);
+    client.emit('user_status', { userId: data.receiverId, online: isOnline });
     return { event: 'joined', roomId };
+  }
+
+  @SubscribeMessage('get_online_status')
+  handleGetOnlineStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string },
+  ) {
+    const isOnline = this.onlineUsers.has(data.userId);
+    return { userId: data.userId, online: isOnline };
   }
 
   @SubscribeMessage('send_message')
@@ -90,6 +110,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.chatService.markAsRead(client.data.userId, data.senderId);
     const roomId = this.getRoomId(client.data.userId, data.senderId);
     this.server.to(roomId).emit('messages_read', { userId: client.data.userId });
+  }
+
+  @SubscribeMessage('typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { receiverId: string; isTyping: boolean },
+  ) {
+    const roomId = this.getRoomId(client.data.userId, data.receiverId);
+    client.to(roomId).emit('user_typing', {
+      userId: client.data.userId,
+      isTyping: data.isTyping,
+    });
   }
 
   private getRoomId(userId1: string, userId2: string): string {
