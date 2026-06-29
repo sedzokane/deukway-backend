@@ -71,7 +71,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { userId: string },
   ) {
     const isOnline = this.onlineUsers.has(data.userId);
-    return { userId: data.userId, online: isOnline };
+    // Emit directement au client au lieu de return
+    client.emit('get_online_status', { userId: data.userId, online: isOnline });
   }
 
   @SubscribeMessage('send_message')
