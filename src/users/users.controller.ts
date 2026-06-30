@@ -27,6 +27,11 @@ export class UsersController {
     return this.usersService.update(req.user.userId, body);
   }
 
+  @Patch('password')
+  changePassword(@Request() req, @Body() body: { oldPassword: string; newPassword: string }) {
+    return this.usersService.changePassword(req.user.userId, body.oldPassword, body.newPassword);
+  }
+
   @Patch(':id/verify')
   verify(@Param('id') id: string) {
     return this.usersService.verify(id);
