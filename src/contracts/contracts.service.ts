@@ -1,12 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class ContractsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private mail: MailService,
   ) {}
 
   async createContract(ownerId: string, visitId: string) {
@@ -36,18 +38,23 @@ export class ContractsService {
       include: {
         visit: { include: { listing: true } },
         owner: { select: { id: true, firstName: true, lastName: true, phone: true } },
-        tenant: { select: { id: true, firstName: true, lastName: true, phone: true } },
+        tenant: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
         listing: true,
       },
     });
 
-    // Notifier le locataire
+    // Push notification
     await this.notifications.sendPushNotification(
       visit.tenantId,
       '📄 Nouveau contrat',
       `${visit.owner.firstName} vous a envoyé un contrat pour ${visit.listing.title}`,
       { type: 'contract', contractId: contract.id },
     );
+
+    // Email au locataire
+    if (visit.tenant.email) {
+      this.mail.sendContratCreeTenant(visit.tenant, visit.owner, visit.listing).catch(function(){});
+    }
 
     return contract;
   }
@@ -151,8 +158,8 @@ ${owner.firstName} ${owner.lastName}`;
     const contract = await this.prisma.contract.findUnique({
       where: { id },
       include: {
-        owner: true,
-        tenant: true,
+        owner: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
+        tenant: { select: { id: true, firstName: true, lastName: true, phone: true } },
         listing: true,
       },
     });
@@ -170,13 +177,18 @@ ${owner.firstName} ${owner.lastName}`;
       },
     });
 
-    // Notifier le propriétaire
+    // Push notification
     await this.notifications.sendPushNotification(
       contract.ownerId,
       '✅ Contrat signé !',
       `${contract.tenant.firstName} a signé le contrat pour ${contract.listing.title}`,
       { type: 'contract_signed', contractId: id },
     );
+
+    // Email au propriétaire
+    if (contract.owner.email) {
+      this.mail.sendContratSigneOwner(contract.owner, contract.tenant, contract.listing).catch(function(){});
+    }
 
     return updated;
   }
@@ -194,7 +206,6 @@ ${owner.firstName} ${owner.lastName}`;
       data: { status: 'REJECTED' },
     });
 
-    // Notifier le propriétaire
     await this.notifications.sendPushNotification(
       contract.ownerId,
       '❌ Contrat refusé',

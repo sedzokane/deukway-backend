@@ -1,19 +1,24 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class VisitsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private mail: MailService,
   ) {}
 
   async create(tenantId: string, data: any) {
     const listing = await this.prisma.listing.findUnique({
       where: { id: data.listingId },
+      include: { owner: true },
     });
     if (!listing) throw new NotFoundException('Annonce introuvable');
+
+    const tenant = await this.prisma.user.findUnique({ where: { id: tenantId } });
 
     const visit = await this.prisma.visit.create({
       data: {
@@ -25,17 +30,23 @@ export class VisitsService {
       },
       include: {
         listing: { include: { media: { take: 1 } } },
-        owner: { select: { id: true, firstName: true, lastName: true, phone: true } },
+        owner: { select: { id: true, firstName: true, lastName: true, phone: true, email: true } },
         tenant: { select: { id: true, firstName: true, lastName: true, phone: true } },
       },
     });
 
+    // Push notification
     await this.notifications.sendPushNotification(
       listing.ownerId,
       'Nouvelle demande de visite',
       `${visit.tenant.firstName} ${visit.tenant.lastName} veut visiter votre bien`,
       { type: 'visit', visitId: visit.id },
     );
+
+    // Email au propriétaire
+    if (listing.owner.email) {
+      this.mail.sendVisiteDemandeOwner(listing.owner, tenant, listing, data.date).catch(function(){});
+    }
 
     return visit;
   }
@@ -70,8 +81,9 @@ export class VisitsService {
     const visit = await this.prisma.visit.findUnique({
       where: { id },
       include: {
-        tenant: { select: { id: true, firstName: true, lastName: true } },
-        listing: { select: { title: true } },
+        tenant: { select: { id: true, firstName: true, lastName: true, email: true } },
+        owner: { select: { id: true, firstName: true, lastName: true, phone: true } },
+        listing: { select: { id: true, title: true, neighborhood: true, city: true } },
       },
     });
     if (!visit) throw new NotFoundException('Visite introuvable');
@@ -96,6 +108,11 @@ export class VisitsService {
       msg,
       { type: 'visit_status', visitId: id, status },
     );
+
+    // Email au locataire si confirmée
+    if (status === 'CONFIRMED' && visit.tenant.email) {
+      this.mail.sendVisiteConfirmeeTenant(visit.tenant, visit.owner, visit.listing, visit.date.toISOString()).catch(function(){});
+    }
 
     return updated;
   }
