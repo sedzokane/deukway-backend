@@ -29,6 +29,35 @@ export class MailService {
     }
   }
 
+  async sendBienvenue(user: any) {
+    if (!user.email) return;
+    await this.send(
+      user.email,
+      user.firstName + ' ' + user.lastName,
+      '🎉 Bienvenue sur Deukway !',
+      `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <div style="background:linear-gradient(135deg,#1A0800,#C8791A);padding:32px;border-radius:16px;text-align:center;margin-bottom:24px">
+          <h1 style="color:#fff;margin:0;font-size:28px">Deukway</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:8px 0 0">Plateforme immobilière au Sénégal</p>
+        </div>
+        <h2 style="color:#C8791A">Bienvenue ${user.firstName} ! 🎉</h2>
+        <p>Votre compte Deukway a été créé avec succès.</p>
+        <div style="background:#FEF4E7;border-radius:12px;padding:20px;margin:16px 0;border-left:4px solid #C8791A">
+          <p style="margin:0 0 8px"><strong>👤 Nom :</strong> ${user.firstName} ${user.lastName}</p>
+          <p style="margin:0 0 8px"><strong>📞 Téléphone :</strong> ${user.phone}</p>
+          <p style="margin:0"><strong>🎭 Profil :</strong> ${user.role === 'OWNER' ? 'Propriétaire' : 'Locataire'}</p>
+        </div>
+        <p>${user.role === 'OWNER' ? 'Vous pouvez maintenant publier vos annonces et gérer vos biens.' : 'Vous pouvez maintenant rechercher votre logement idéal au Sénégal.'}</p>
+        <div style="text-align:center;margin:24px 0">
+          <a href="https://deukway.sn" style="background:#C8791A;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:bold">Commencer</a>
+        </div>
+        <p style="color:#888;font-size:12px;text-align:center">Deukway — Votre logement idéal au Sénégal</p>
+      </div>
+      `
+    );
+  }
+
   async sendVisiteDemandeOwner(owner: any, tenant: any, listing: any, date: string) {
     var d = new Date(date).toLocaleDateString('fr-SN', { weekday:'long', day:'numeric', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
     await this.send(

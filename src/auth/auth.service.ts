@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
@@ -10,6 +11,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mail: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -34,6 +36,11 @@ export class AuthService {
       },
     });
 
+    // Email de bienvenue
+    if (user.email) {
+      this.mail.sendBienvenue(user).catch(function(){});
+    }
+
     const token = this.jwtService.sign({ sub: user.id, role: user.role });
     const { password, ...result } = user;
     return { user: result, token };
@@ -55,7 +62,6 @@ export class AuthService {
 
   async googleAuth(googleToken: string) {
     try {
-      // Vérifier le token Google
       const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: 'Bearer ' + googleToken },
       });
@@ -63,13 +69,9 @@ export class AuthService {
 
       if (!googleUser.email) throw new UnauthorizedException('Token Google invalide');
 
-      console.log('Google user:', googleUser.email, googleUser.name);
-
-      // Chercher l'utilisateur par email
       var existing = await this.prisma.user.findUnique({ where: { email: googleUser.email } });
 
       if (existing) {
-        // Mettre à jour avatar si pas encore
         if (!existing.avatar && googleUser.picture) {
           existing = await this.prisma.user.update({
             where: { id: existing.id },
@@ -81,12 +83,9 @@ export class AuthService {
         return { user: result, token };
       }
 
-      // Créer un nouveau compte
       var names = (googleUser.name || 'Utilisateur Google').split(' ');
       var firstName = names[0] || 'Utilisateur';
       var lastName = names.slice(1).join(' ') || 'Google';
-
-      // Générer un phone unique temporaire
       var tempPhone = '+000' + Date.now().toString().slice(-9);
       var hashed = await bcrypt.hash('google_' + googleUser.sub, 10);
 
@@ -102,6 +101,9 @@ export class AuthService {
           isVerified: true,
         },
       });
+
+      // Email de bienvenue Google
+      this.mail.sendBienvenue(newUser).catch(function(){});
 
       const token = this.jwtService.sign({ sub: newUser.id, role: newUser.role });
       const { password, ...result } = newUser;
