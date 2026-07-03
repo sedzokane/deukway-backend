@@ -9,6 +9,13 @@ const CHANNEL_MAP: any = {
   card: 'CARD',
 };
 
+const PAYDUNYA_MASTER_KEY = process.env.PAYDUNYA_MASTER_KEY || '';
+const PAYDUNYA_PRIVATE_KEY = process.env.PAYDUNYA_PRIVATE_KEY || '';
+const PAYDUNYA_TOKEN = process.env.PAYDUNYA_TOKEN || '';
+const PAYDUNYA_BASE_URL = process.env.PAYDUNYA_MODE === 'live'
+  ? 'https://app.paydunya.com/live-api/v1'
+  : 'https://app.paydunya.com/sandbox-api/v1';
+
 @Injectable()
 export class PaymentsService {
   constructor(private prisma: PrismaService) {}
@@ -36,19 +43,19 @@ export class PaymentsService {
       body.invoice.channels = [CHANNEL_MAP[channel]];
     }
 
-    console.log('Calling PayDunya API, channel:', channel, 'amount:', amount);
+    console.log('Calling PayDunya API, mode:', process.env.PAYDUNYA_MODE, 'channel:', channel, 'amount:', amount);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const response = await fetch('https://app.paydunya.com/sandbox-api/v1/checkout-invoice/create', {
+      const response = await fetch(PAYDUNYA_BASE_URL + '/checkout-invoice/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'PAYDUNYA-MASTER-KEY': 'TdBzwUdV-vemt-YVWH-ZgqH-v3cF7WOr60kY',
-          'PAYDUNYA-PRIVATE-KEY': 'test_private_ZoNhhFEytY0dJhsUZAp9PUxZaOk',
-          'PAYDUNYA-TOKEN': 'KpVf7J0eswO6CbMe5OHk',
+          'PAYDUNYA-MASTER-KEY': PAYDUNYA_MASTER_KEY,
+          'PAYDUNYA-PRIVATE-KEY': PAYDUNYA_PRIVATE_KEY,
+          'PAYDUNYA-TOKEN': PAYDUNYA_TOKEN,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -57,7 +64,6 @@ export class PaymentsService {
       const data = await response.json();
       console.log('PayDunya response:', JSON.stringify(data));
 
-      // Sauvegarder le paiement en DB
       if (data.token) {
         await this.prisma.payment.create({
           data: {
@@ -80,18 +86,17 @@ export class PaymentsService {
   }
 
   async checkInvoice(token: string) {
-    const response = await fetch(`https://app.paydunya.com/sandbox-api/v1/checkout-invoice/confirm/${token}`, {
+    const response = await fetch(PAYDUNYA_BASE_URL + `/checkout-invoice/confirm/${token}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'PAYDUNYA-MASTER-KEY': 'TdBzwUdV-vemt-YVWH-ZgqH-v3cF7WOr60kY',
-        'PAYDUNYA-PRIVATE-KEY': 'test_private_ZoNhhFEytY0dJhsUZAp9PUxZaOk',
-        'PAYDUNYA-TOKEN': 'KpVf7J0eswO6CbMe5OHk',
+        'PAYDUNYA-MASTER-KEY': PAYDUNYA_MASTER_KEY,
+        'PAYDUNYA-PRIVATE-KEY': PAYDUNYA_PRIVATE_KEY,
+        'PAYDUNYA-TOKEN': PAYDUNYA_TOKEN,
       },
     });
     const data = await response.json();
 
-    // Mettre à jour le statut en DB
     if (data.status === 'completed') {
       await this.prisma.payment.updateMany({
         where: { token },
