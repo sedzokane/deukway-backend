@@ -166,7 +166,7 @@ export class MailService {
         </div>
         <p>Le contrat est maintenant actif. Vous pouvez consulter tous les détails dans la section <strong>Contrats</strong> de l'application.</p>
         <div style="text-align:center;margin:24px 0">
-          <a href="https://deukway.sn" style="background:#1B4F3A;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:bold">Voir le contrat</a>
+          <a href="#" style="background:#1B4F3A;color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:bold">Voir le contrat</a>
         </div>
         <p style="color:#888;font-size:12px;text-align:center">Deukway — Votre logement idéal au Sénégal</p>
       </div>
